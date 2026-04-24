@@ -5,7 +5,9 @@
       "Bash(npx create-next-app@14:*)",
       "Bash(npm install:*)",
       "Bash(supabase:*)",
-      "Bash(npx supabase:*)"
+      "Bash(npx supabase:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)"
     ]
   }
 }
