@@ -155,6 +155,12 @@ export default function Home() {
               <span>{profile.transfer_year}</span>
             </div>
           )}
+          <button onClick={() => router.push("/settings")} className="text-xs transition-all"
+            style={{ color: "#0a0a0a", opacity: 0.35, letterSpacing: "0.12em" }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.7")}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.35")}>
+            SETTINGS
+          </button>
           <button onClick={handleSignOut} className="text-xs transition-all"
             style={{ color: "#0a0a0a", opacity: 0.35, letterSpacing: "0.12em" }}
             onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.7")}
