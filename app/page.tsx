@@ -24,6 +24,7 @@ export default function Home() {
   const [profile,      setProfile]      = useState<Profile | null>(null);
   const [school,       setSchool]       = useState<string>("UC Davis");
   const [profileReady, setProfileReady] = useState(false);
+  const [menuOpen,     setMenuOpen]     = useState(false);
   const bottomRef                       = useRef<HTMLDivElement>(null);
   const router                          = useRouter();
   const supabase                        = createClient();
@@ -77,6 +78,7 @@ export default function Home() {
 
   async function sendMessage(text: string) {
     if (!text.trim() || loading) return;
+    setMenuOpen(false);
 
     const userMsg: Message = { role: "user", content: text };
     setMessages((prev) => [...prev, userMsg]);
@@ -143,9 +145,14 @@ export default function Home() {
     <div className="flex flex-col h-screen overflow-hidden"
       style={{ backgroundColor: "#f5f0e8", color: "#0a0a0a", fontFamily: "'Georgia', 'Times New Roman', serif" }}>
 
-      <header className="flex-none px-8 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid #d6cfc3" }}>
-        <span className="text-lg font-bold" style={{ letterSpacing: "0.25em", color: "#0a0a0a" }}>TRANSFERAI</span>
-        <div className="flex items-center gap-4">
+      {/* Header */}
+      <header className="flex-none px-4 sm:px-8 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid #d6cfc3" }}>
+        <span className="text-base sm:text-lg font-bold" style={{ letterSpacing: "0.25em", color: "#0a0a0a" }}>
+          TRANSFERAI
+        </span>
+
+        {/* Desktop nav */}
+        <div className="hidden sm:flex items-center gap-4">
           {profile?.intended_major && (
             <div className="flex items-center gap-3 text-xs" style={{ color: "#0a0a0a", opacity: 0.5, letterSpacing: "0.08em" }}>
               <span>{profile.intended_major}</span>
@@ -168,21 +175,59 @@ export default function Home() {
             SIGN OUT
           </button>
         </div>
+
+        {/* Mobile hamburger */}
+        <button
+          className="sm:hidden flex flex-col gap-1 p-2"
+          onClick={() => setMenuOpen(!menuOpen)}
+          style={{ opacity: 0.5 }}
+        >
+          <span className="block w-5 h-px" style={{ backgroundColor: "#0a0a0a" }} />
+          <span className="block w-5 h-px" style={{ backgroundColor: "#0a0a0a" }} />
+          <span className="block w-5 h-px" style={{ backgroundColor: "#0a0a0a" }} />
+        </button>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-6 py-8 space-y-8">
+      {/* Mobile dropdown menu */}
+      {menuOpen && (
+        <div className="sm:hidden px-4 py-4 space-y-3" style={{ backgroundColor: "#ede8df", borderBottom: "1px solid #d6cfc3" }}>
+          {profile?.intended_major && (
+            <p className="text-xs" style={{ color: "#0a0a0a", opacity: 0.5, letterSpacing: "0.08em" }}>
+              {profile.intended_major} · {school} · {profile.transfer_year}
+            </p>
+          )}
+          <button onClick={() => { router.push("/settings"); setMenuOpen(false); }}
+            className="block w-full text-left text-xs py-2"
+            style={{ color: "#0a0a0a", letterSpacing: "0.12em", opacity: 0.7 }}>
+            SETTINGS
+          </button>
+          <button onClick={handleSignOut}
+            className="block w-full text-left text-xs py-2"
+            style={{ color: "#0a0a0a", letterSpacing: "0.12em", opacity: 0.7 }}>
+            SIGN OUT
+          </button>
+        </div>
+      )}
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full gap-10">
+          <div className="flex flex-col items-center justify-center h-full gap-8 sm:gap-10">
             <div className="text-center space-y-3">
-              <h1 className="text-4xl font-bold" style={{ letterSpacing: "0.1em", color: "#0a0a0a" }}>TransferAI</h1>
-              <p className="text-xs" style={{ letterSpacing: "0.3em", color: "#0a0a0a", opacity: 0.45 }}>
-                POWERED BY OFFICIAL ASSIST.ORG ARTICULATION DATA
+              <h1 className="text-3xl sm:text-4xl font-bold" style={{ letterSpacing: "0.1em", color: "#0a0a0a" }}>
+                TransferAI
+              </h1>
+              <p className="text-xs" style={{ letterSpacing: "0.2em", color: "#0a0a0a", opacity: 0.45 }}>
+                POWERED BY OFFICIAL ASSIST.ORG DATA
               </p>
               <div className="w-16 h-px mx-auto mt-2" style={{ backgroundColor: "#0a0a0a", opacity: 0.15 }} />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
+
+            {/* Suggested questions — 1 col on mobile, 2 on desktop */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 w-full max-w-2xl px-1">
               {suggestedQuestions.map((q) => (
-                <button key={q} onClick={() => sendMessage(q)} className="text-left px-5 py-4 transition-all duration-200"
+                <button key={q} onClick={() => sendMessage(q)}
+                  className="text-left px-4 sm:px-5 py-3 sm:py-4 transition-all duration-200"
                   style={{ border: "1px solid #c8c0b4", color: "#0a0a0a", backgroundColor: "transparent", letterSpacing: "0.03em", lineHeight: "1.6", fontSize: "0.75rem" }}
                   onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#ede8df")}
                   onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}>
@@ -194,31 +239,32 @@ export default function Home() {
         )}
 
         {messages.map((msg, i) => (
-          <div key={i} className={`flex gap-4 max-w-3xl mx-auto w-full ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
-            <div className="flex-none text-xs mt-1 w-8 text-right"
-              style={{ letterSpacing: "0.15em", fontFamily: "Georgia, serif", color: "#0a0a0a", opacity: msg.role === "user" ? 0.4 : 0.6 }}>
+          <div key={i} className={`flex gap-2 sm:gap-4 max-w-3xl mx-auto w-full ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
+            <div className="flex-none text-xs mt-1 w-6 sm:w-8 text-right"
+              style={{ letterSpacing: "0.1em", fontFamily: "Georgia, serif", color: "#0a0a0a", opacity: msg.role === "user" ? 0.4 : 0.6, fontSize: "0.65rem" }}>
               {msg.role === "user" ? "YOU" : "TAI"}
             </div>
-            <div className="text-sm max-w-[85%]"
-              style={{ letterSpacing: "0.02em", lineHeight: "1.8", fontFamily: "Georgia, serif", padding: "12px 20px",
+            <div className="text-sm max-w-[88%] sm:max-w-[85%]"
+              style={{ letterSpacing: "0.02em", lineHeight: "1.75", fontFamily: "Georgia, serif", padding: "10px 14px",
                 backgroundColor: msg.role === "user" ? "#0a0a0a" : "#ede8df",
                 color: msg.role === "user" ? "#f5f0e8" : "#0a0a0a",
-                border: msg.role === "assistant" ? "1px solid #d6cfc3" : "none" }}>
+                border: msg.role === "assistant" ? "1px solid #d6cfc3" : "none",
+                fontSize: "0.8rem" }}>
               {msg.content ? (
                 msg.role === "user" ? (
                   <span style={{ whiteSpace: "pre-wrap" }}>{msg.content}</span>
                 ) : (
                   <ReactMarkdown components={{
-                    h1: ({ children }) => <h1 style={{ fontSize: "1.2rem", fontWeight: "bold", marginBottom: "0.5rem", letterSpacing: "0.05em" }}>{children}</h1>,
-                    h2: ({ children }) => <h2 style={{ fontSize: "1rem", fontWeight: "bold", marginTop: "1rem", marginBottom: "0.4rem", letterSpacing: "0.04em" }}>{children}</h2>,
-                    h3: ({ children }) => <h3 style={{ fontSize: "0.9rem", fontWeight: "bold", marginTop: "0.8rem", marginBottom: "0.3rem" }}>{children}</h3>,
-                    p:  ({ children }) => <p style={{ marginBottom: "0.6rem" }}>{children}</p>,
-                    ul: ({ children }) => <ul style={{ paddingLeft: "1.2rem", marginBottom: "0.6rem" }}>{children}</ul>,
-                    ol: ({ children }) => <ol style={{ paddingLeft: "1.2rem", marginBottom: "0.6rem" }}>{children}</ol>,
-                    li: ({ children }) => <li style={{ marginBottom: "0.25rem" }}>{children}</li>,
+                    h1: ({ children }) => <h1 style={{ fontSize: "1.1rem", fontWeight: "bold", marginBottom: "0.5rem" }}>{children}</h1>,
+                    h2: ({ children }) => <h2 style={{ fontSize: "0.95rem", fontWeight: "bold", marginTop: "0.8rem", marginBottom: "0.3rem" }}>{children}</h2>,
+                    h3: ({ children }) => <h3 style={{ fontSize: "0.875rem", fontWeight: "bold", marginTop: "0.6rem", marginBottom: "0.25rem" }}>{children}</h3>,
+                    p:  ({ children }) => <p style={{ marginBottom: "0.5rem" }}>{children}</p>,
+                    ul: ({ children }) => <ul style={{ paddingLeft: "1rem", marginBottom: "0.5rem" }}>{children}</ul>,
+                    ol: ({ children }) => <ol style={{ paddingLeft: "1rem", marginBottom: "0.5rem" }}>{children}</ol>,
+                    li: ({ children }) => <li style={{ marginBottom: "0.2rem" }}>{children}</li>,
                     strong: ({ children }) => <strong style={{ fontWeight: "bold" }}>{children}</strong>,
-                    code: ({ children }) => <code style={{ backgroundColor: "#d6cfc3", padding: "1px 4px", fontSize: "0.8rem" }}>{children}</code>,
-                    hr: () => <hr style={{ border: "none", borderTop: "1px solid #d6cfc3", margin: "0.8rem 0" }} />,
+                    code: ({ children }) => <code style={{ backgroundColor: "#d6cfc3", padding: "1px 4px", fontSize: "0.75rem" }}>{children}</code>,
+                    hr: () => <hr style={{ border: "none", borderTop: "1px solid #d6cfc3", margin: "0.6rem 0" }} />,
                   }}>
                     {cleanContent(msg.content)}
                   </ReactMarkdown>
@@ -236,20 +282,23 @@ export default function Home() {
         <div ref={bottomRef} />
       </div>
 
-      <div className="flex-none px-6 py-5" style={{ borderTop: "1px solid #d6cfc3", backgroundColor: "#f5f0e8" }}>
-        <div className="max-w-3xl mx-auto flex gap-3 items-end">
+      {/* Input */}
+      <div className="flex-none px-3 sm:px-6 py-3 sm:py-5" style={{ borderTop: "1px solid #d6cfc3", backgroundColor: "#f5f0e8" }}>
+        <div className="max-w-3xl mx-auto flex gap-2 sm:gap-3 items-end">
           <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
-            placeholder="Ask about transfer requirements, course articulation, or planning..."
+            placeholder="Ask about transfer requirements..."
             rows={1} disabled={loading}
             className="flex-1 resize-none outline-none transition-all duration-200 disabled:opacity-40"
-            style={{ border: "1px solid #c8c0b4", padding: "10px 16px", fontSize: "0.875rem", fontFamily: "Georgia, serif", letterSpacing: "0.02em", lineHeight: "1.6", color: "#0a0a0a", backgroundColor: "#f5f0e8", minHeight: "44px", maxHeight: "128px" }} />
+            style={{ border: "1px solid #c8c0b4", padding: "10px 12px", fontSize: "0.875rem", fontFamily: "Georgia, serif", letterSpacing: "0.02em", lineHeight: "1.6", color: "#0a0a0a", backgroundColor: "#f5f0e8", minHeight: "44px", maxHeight: "120px" }} />
           <button onClick={() => sendMessage(input)} disabled={loading || !input.trim()}
-            className="flex-none px-6 h-11 text-xs transition-all duration-200 disabled:opacity-25 disabled:cursor-not-allowed"
-            style={{ backgroundColor: "#0a0a0a", color: "#f5f0e8", letterSpacing: "0.15em", fontFamily: "Georgia, serif" }}>
-            {loading ? <span className="w-4 h-4 border-2 rounded-full animate-spin inline-block" style={{ borderColor: "#f5f0e8", borderTopColor: "transparent" }} /> : "SEND"}
+            className="flex-none px-4 sm:px-6 h-11 text-xs transition-all duration-200 disabled:opacity-25 disabled:cursor-not-allowed"
+            style={{ backgroundColor: "#0a0a0a", color: "#f5f0e8", letterSpacing: "0.12em", fontFamily: "Georgia, serif" }}>
+            {loading
+              ? <span className="w-4 h-4 border-2 rounded-full animate-spin inline-block" style={{ borderColor: "#f5f0e8", borderTopColor: "transparent" }} />
+              : "SEND"}
           </button>
         </div>
-        <p className="text-center text-xs mt-3" style={{ letterSpacing: "0.2em", color: "#0a0a0a", opacity: 0.3 }}>
+        <p className="text-center text-xs mt-2 hidden sm:block" style={{ letterSpacing: "0.2em", color: "#0a0a0a", opacity: 0.3 }}>
           DE ANZA COLLEGE · 2025–2026 CATALOG
         </p>
       </div>
