@@ -16,13 +16,6 @@ interface Profile {
   unit_load_preference: number | null;
 }
 
-const SUGGESTED_QUESTIONS = [
-  "What courses do I need for my major?",
-  "Make me a transfer plan",
-  "Does EWRT 1A transfer to UC Davis?",
-  "What CIS courses articulate to UC Davis?",
-];
-
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input,    setInput]    = useState("");
@@ -61,6 +54,14 @@ export default function Home() {
     }
     loadProfile();
   }, []);
+
+  // Dynamic suggested questions based on user profile
+  const suggestedQuestions = [
+    `What courses do I need for my major?`,
+    `Make me a transfer plan`,
+    `Does EWRT 1A transfer to ${school}?`,
+    `What courses articulate to ${school}?`,
+  ];
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -180,7 +181,7 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
-              {SUGGESTED_QUESTIONS.map((q) => (
+              {suggestedQuestions.map((q) => (
                 <button
                   key={q}
                   onClick={() => sendMessage(q)}
