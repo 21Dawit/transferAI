@@ -17,14 +17,15 @@ interface Profile {
 }
 
 export default function Home() {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input,    setInput]    = useState("");
-  const [loading,  setLoading]  = useState(false);
-  const [profile,  setProfile]  = useState<Profile | null>(null);
-  const [school,   setSchool]   = useState<string>("UC Davis");
-  const bottomRef               = useRef<HTMLDivElement>(null);
-  const router                  = useRouter();
-  const supabase                = createClient();
+  const [messages,     setMessages]     = useState<Message[]>([]);
+  const [input,        setInput]        = useState("");
+  const [loading,      setLoading]      = useState(false);
+  const [profile,      setProfile]      = useState<Profile | null>(null);
+  const [school,       setSchool]       = useState<string>("UC Davis");
+  const [profileReady, setProfileReady] = useState(false);
+  const bottomRef                       = useRef<HTMLDivElement>(null);
+  const router                          = useRouter();
+  const supabase                        = createClient();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -33,7 +34,7 @@ export default function Home() {
   useEffect(() => {
     async function loadProfile() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) { setProfileReady(true); return; }
 
       const { data: p } = await supabase
         .from("profiles")
@@ -51,17 +52,19 @@ export default function Home() {
         .single();
 
       if (t?.schools) setSchool((t.schools as any).name);
+
+      setProfileReady(true);
     }
     loadProfile();
   }, []);
 
-  // Dynamic suggested questions based on user profile
-  const suggestedQuestions = [
+  // Only compute after profile is loaded so school is correct
+  const suggestedQuestions = profileReady ? [
     `What courses do I need for my major?`,
     `Make me a transfer plan`,
     `Does EWRT 1A transfer to ${school}?`,
     `What courses articulate to ${school}?`,
-  ];
+  ] : [];
 
   async function handleSignOut() {
     await supabase.auth.signOut();
