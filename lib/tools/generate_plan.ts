@@ -1,8 +1,5 @@
 /**
  * generate_plan.ts — Plan generator tool
- *
- * Takes a student profile and produces a validated term-by-term transfer plan.
- * Runs the plan through validate_plan and returns both the plan and any issues.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -16,17 +13,13 @@ const supabase = createClient(
 
 const DE_ANZA_ID = "00000000-0000-0000-0000-000000000001";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 interface CoursePlan {
   department: string;
   number: string;
   title: string;
   units: number;
   articulates_to: string[];
-  reason: string; // why this course is in the plan
+  reason: string;
 }
 
 interface TermPlan {
@@ -36,35 +29,8 @@ interface TermPlan {
   total_units: number;
 }
 
-interface GeneratedPlan {
-  student_profile: {
-    major: string;
-    target_school: string;
-    transfer_year: string;
-    unit_load_cap: number;
-    terms_available: number;
-  };
-  terms: TermPlan[];
-  total_units: number;
-  validation: {
-    is_valid: boolean;
-    errors: string[];
-    warnings: string[];
-    summary: string;
-  };
-  notes: string[];
-}
-
-// ---------------------------------------------------------------------------
-// Load articulation data from ASSIST JSON
-// ---------------------------------------------------------------------------
-
-function loadArticulationMap(): Map<string, string[]> {
-  /**
-   * Returns a map of UC course → De Anza courses that satisfy it.
-   * e.g. "MAT 021A" → ["MATH 1A"]
-   */
-  const map = new Map<string, string[]>();
+function loadArticulationMap(): Record<string, string[]> {
+  const map: Record<string, string[]> = {};
   const rawDir = path.join(process.cwd(), "data", "assist_raw");
 
   try {
@@ -85,7 +51,6 @@ function loadArticulationMap(): Map<string, string[]> {
           }
         }
 
-        // Find the UC course
         for (const asset of data.templateAssets || []) {
           if (asset.type !== "RequirementGroup") continue;
           for (const section of asset.sections || []) {
@@ -95,7 +60,7 @@ function loadArticulationMap(): Map<string, string[]> {
                 if (cell.id === art.id && cell.course) {
                   const ucKey = `${cell.course.prefix} ${cell.course.courseNumber}`;
                   if (cccCourses.length > 0) {
-                    map.set(ucKey, cccCourses);
+                    map[ucKey] = cccCourses;
                   }
                 }
               }
@@ -104,30 +69,20 @@ function loadArticulationMap(): Map<string, string[]> {
         }
       }
     }
-  } catch (e) {
-    // No ASSIST files — return empty map
-  }
+  } catch (e) {}
 
   return map;
 }
 
-// ---------------------------------------------------------------------------
-// Fetch De Anza courses for a given department
-// ---------------------------------------------------------------------------
-
 async function fetchCoursesByDept(dept: string): Promise<any[]> {
   const result = await supabase
     .from("courses")
-    .select("department, number, title, units, description")
+    .select("department, number, title, units")
     .eq("school_id", DE_ANZA_ID)
     .eq("department", dept.toUpperCase())
     .order("number");
   return result.data || [];
 }
-
-// ---------------------------------------------------------------------------
-// Fetch IGETC requirements
-// ---------------------------------------------------------------------------
 
 async function fetchIGETC(): Promise<any[]> {
   const result = await supabase
@@ -139,17 +94,13 @@ async function fetchIGETC(): Promise<any[]> {
   return result.data || [];
 }
 
-// ---------------------------------------------------------------------------
-// Core plan generator
-// ---------------------------------------------------------------------------
-
 export async function generatePlan(input: {
   major: string;
   target_school?: string;
   transfer_year?: string;
   units_per_term?: number;
   terms_available?: number;
-  completed_courses?: string[]; // e.g. ["MATH 1A", "EWRT 1A"]
+  completed_courses?: string[];
 }): Promise<string> {
   const {
     major,
@@ -160,32 +111,26 @@ export async function generatePlan(input: {
     completed_courses = [],
   } = input;
 
-  const artMap  = loadArticulationMap();
-  const igetc   = await fetchIGETC();
+  const artMap = loadArticulationMap();
+  const igetc  = await fetchIGETC();
   const notes: string[] = [];
-
-  // Build list of courses to place
-  // Priority 1: courses that directly articulate to UC requirements
   const toPlace: CoursePlan[] = [];
   const completedSet = new Set(completed_courses.map((c) => c.toUpperCase().trim()));
 
-  // Add articulating courses
-  for (const [ucCourse, cccOptions] of artMap.entries()) {
-    if (cccOptions.length === 0) continue;
-    const best = cccOptions[0]; // take the first option
-    const key  = best.toUpperCase().trim();
+  // Add articulating courses — use plain object iteration to avoid Map type issues
+  for (const ucCourse of Object.keys(artMap)) {
+    const cccOptions = artMap[ucCourse];
+    if (!cccOptions || cccOptions.length === 0) continue;
 
+    const best = cccOptions[0];
+    const key  = best.toUpperCase().trim();
     if (completedSet.has(key)) continue;
 
-    // Look up course details from Supabase
-    const parts = best.split(" ");
-    const dept  = parts[0];
-    const num   = parts.slice(1).join(" ");
-
+    const parts   = best.split(" ");
+    const dept    = parts[0];
+    const num     = parts.slice(1).join(" ");
     const courses = await fetchCoursesByDept(dept);
-    const found   = courses.find(
-      (c) => c.number.toUpperCase().trim() === num.toUpperCase().trim()
-    );
+    const found   = courses.find((c) => c.number.toUpperCase().trim() === num.toUpperCase().trim());
 
     toPlace.push({
       department:     dept,
@@ -197,7 +142,7 @@ export async function generatePlan(input: {
     });
   }
 
-  // Add IGETC courses (simplified — use example courses from course_constraint)
+  // Add IGETC courses
   const igetcPriority = ["1A", "1B", "2", "4", "3A", "3B", "5A", "5B"];
   for (const areaCode of igetcPriority) {
     const area = igetc.find((r) => r.area_code === areaCode);
@@ -214,10 +159,7 @@ export async function generatePlan(input: {
       if (toPlace.some((c) => `${c.department} ${c.number}`.toUpperCase() === key)) continue;
 
       const courses = await fetchCoursesByDept(dept);
-      const found   = courses.find(
-        (c) => c.number.toUpperCase().trim() === num.toUpperCase().trim()
-      );
-
+      const found   = courses.find((c) => c.number.toUpperCase().trim() === num.toUpperCase().trim());
       if (!found) continue;
 
       toPlace.push({
@@ -232,14 +174,11 @@ export async function generatePlan(input: {
     }
   }
 
-  // Distribute courses across terms
+  // Distribute across terms
   const terms: TermPlan[] = [];
   let courseIdx = 0;
 
-  const termLabels = [
-    "Fall 2024", "Winter 2025", "Spring 2025",
-    "Fall 2025", "Winter 2026", "Spring 2026",
-  ].slice(0, terms_available);
+  const termLabels = ["Fall 2024", "Winter 2025", "Spring 2025", "Fall 2025", "Winter 2026", "Spring 2026"].slice(0, terms_available);
 
   for (let t = 0; t < terms_available && courseIdx < toPlace.length; t++) {
     const termCourses: CoursePlan[] = [];
@@ -254,91 +193,40 @@ export async function generatePlan(input: {
     }
 
     if (termCourses.length > 0) {
-      terms.push({
-        label:       termLabels[t] || `Term ${t + 1}`,
-        order:       t + 1,
-        courses:     termCourses,
-        total_units: termUnits,
-      });
+      terms.push({ label: termLabels[t] || `Term ${t + 1}`, order: t + 1, courses: termCourses, total_units: termUnits });
     }
   }
 
   if (courseIdx < toPlace.length) {
-    notes.push(
-      `${toPlace.length - courseIdx} additional courses could not fit within ${terms_available} terms at ${units_per_term} units/term. Consider increasing units per term or adding a term.`
-    );
+    notes.push(`${toPlace.length - courseIdx} courses couldn't fit. Consider more terms or higher unit cap.`);
   }
 
   const totalUnits = terms.reduce((s, t) => s + t.total_units, 0);
-
-  // Basic validation
-  const errors:   string[] = [];
   const warnings: string[] = [];
+  const errors: string[] = [];
 
-  if (totalUnits < 60) warnings.push(`Total units (${totalUnits}) is below the 60-unit UC transfer minimum.`);
-  if (totalUnits > 90) warnings.push(`Total units (${totalUnits}) exceeds UC's 70-unit transfer credit cap.`);
+  if (totalUnits < 60) warnings.push(`Total (${totalUnits} units) is below the 60-unit UC minimum.`);
+  if (totalUnits > 90) warnings.push(`Total (${totalUnits} units) exceeds UC's 70-unit credit cap.`);
+  if (toPlace.filter((c) => c.articulates_to.length > 0).length === 0) errors.push("No articulating courses found.");
 
-  const artCourses = toPlace.filter((c) => c.articulates_to.length > 0);
-  if (artCourses.length === 0) errors.push("No articulating major prep courses found. Check ASSIST data.");
+  const lines: string[] = [`📋 Transfer Plan: ${major} → ${target_school} (${transfer_year})`, "─".repeat(60)];
 
-  const validation = {
-    is_valid: errors.length === 0,
-    errors,
-    warnings,
-    summary:
-      errors.length === 0 && warnings.length === 0
-        ? "Plan looks good."
-        : errors.length > 0
-        ? `${errors.length} error(s) need fixing.`
-        : `${warnings.length} warning(s) to review.`,
-  };
-
-  const plan: GeneratedPlan = {
-    student_profile: {
-      major,
-      target_school,
-      transfer_year,
-      unit_load_cap:   units_per_term,
-      terms_available,
-    },
-    terms,
-    total_units: totalUnits,
-    validation,
-    notes,
-  };
-
-  // Format as readable text for Claude to present
-  const lines: string[] = [
-    `📋 Transfer Plan: ${major} → ${target_school} (${transfer_year})`,
-    `${"─".repeat(60)}`,
-  ];
-
-  for (const term of plan.terms) {
-    lines.push(`\n${term.label}  (${term.total_units} units)`);
+  for (const term of terms) {
+    lines.push(`\n**${term.label}** (${term.total_units} units)`);
     for (const c of term.courses) {
-      lines.push(`  • ${c.department} ${c.number} — ${c.title} (${c.units} units)`);
-      lines.push(`    ${c.reason}`);
+      lines.push(`- ${c.department} ${c.number} — ${c.title} (${c.units} units)`);
+      lines.push(`  *${c.reason}*`);
     }
   }
 
   lines.push(`\n${"─".repeat(60)}`);
-  lines.push(`Total: ${totalUnits} units across ${terms.length} terms`);
-  lines.push(`\nValidation: ${validation.summary}`);
+  lines.push(`**Total: ${totalUnits} units across ${terms.length} terms**`);
 
-  if (validation.errors.length > 0) {
-    lines.push("\nErrors:");
-    validation.errors.forEach((e) => lines.push(`  ✗ ${e}`));
-  }
-  if (validation.warnings.length > 0) {
-    lines.push("\nWarnings:");
-    validation.warnings.forEach((w) => lines.push(`  ⚠ ${w}`));
-  }
-  if (notes.length > 0) {
-    lines.push("\nNotes:");
-    notes.forEach((n) => lines.push(`  • ${n}`));
-  }
+  if (errors.length > 0) { lines.push("\n**Errors:**"); errors.forEach((e) => lines.push(`- ✗ ${e}`)); }
+  if (warnings.length > 0) { lines.push("\n**Warnings:**"); warnings.forEach((w) => lines.push(`- ⚠ ${w}`)); }
+  if (notes.length > 0) { lines.push("\n**Notes:**"); notes.forEach((n) => lines.push(`- ${n}`)); }
 
-  lines.push(`\nSource: ASSIST.org articulation data + De Anza 2025–2026 catalog`);
+  lines.push(`\n*Source: ASSIST.org + De Anza 2025–2026 catalog*`);
 
   return lines.join("\n");
 }
