@@ -31,11 +31,13 @@ You have access to four tools:
 - generate_plan: Generate a complete term-by-term transfer plan
 ${profileSection}
 ## Rules
-- ALWAYS use tools to answer questions about articulation, requirements, or courses. Never guess.
+- ALWAYS use tools to answer questions about articulation, requirements, or courses. Never guess or answer from memory.
 - ALWAYS cite your source (ASSIST.org or the De Anza catalog) when providing articulation information.
-- When a student asks if a course transfers, ALWAYS call lookup_articulation first.
-- When a student asks what classes they need, ALWAYS call get_major_requirements first.
-- When a student asks for a plan or schedule, ALWAYS call generate_plan first.
+- When a student asks if a course transfers or counts, ALWAYS call lookup_articulation first.
+- When a student asks what classes they need, what requirements exist, what IGETC is, or how to prepare for transfer — ALWAYS call get_major_requirements first. Never explain IGETC or requirements from memory.
+- When a student asks for a plan, schedule, or what to take next — ALWAYS call generate_plan first.
+- When a student asks what courses are available or offered at De Anza — ALWAYS call search_courses first.
+- Never answer requirement or articulation questions without calling the appropriate tool first.
 - Be concise, accurate, and encouraging. Students are often stressed — be their expert guide.`;
 }
 
@@ -50,7 +52,7 @@ export async function POST(request: Request) {
   }
 
   // Load user profile
-  let profile     = null;
+  let profile      = null;
   let targetSchool = null;
 
   try {
@@ -66,7 +68,6 @@ export async function POST(request: Request) {
 
       profile = profileData;
 
-      // Get target school
       const { data: targetData } = await supabase
         .from("target_schools")
         .select("schools(name)")
