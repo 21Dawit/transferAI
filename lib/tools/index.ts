@@ -10,10 +10,6 @@ const supabase = createClient(
 
 const DE_ANZA_ID = "00000000-0000-0000-0000-000000000001";
 
-// -----------------------------------------------------------------------
-// Tool: lookup_articulation
-// -----------------------------------------------------------------------
-
 export async function lookupArticulation(input: {
   ccc_department: string;
   ccc_number: string;
@@ -98,10 +94,6 @@ export async function lookupArticulation(input: {
   return matches.join("\n\n");
 }
 
-// -----------------------------------------------------------------------
-// Tool: get_major_requirements
-// -----------------------------------------------------------------------
-
 export async function getMajorRequirements(input: {
   major_name: string;
   school?: string;
@@ -159,10 +151,6 @@ export async function getMajorRequirements(input: {
   return sections.join("\n");
 }
 
-// -----------------------------------------------------------------------
-// Tool: search_courses
-// -----------------------------------------------------------------------
-
 export async function searchCourses(input: { query: string; limit?: number }): Promise<string> {
   const { query, limit = 5 } = input;
 
@@ -181,10 +169,6 @@ export async function searchCourses(input: { query: string; limit?: number }): P
     .map((c: any) => `${c.department} ${c.number} — ${c.title} (${c.units} units)\n  ${c.description || "No description available."}`)
     .join("\n\n");
 }
-
-// -----------------------------------------------------------------------
-// Tool definitions
-// -----------------------------------------------------------------------
 
 export const TOOL_DEFINITIONS = [
   {
@@ -207,7 +191,8 @@ export const TOOL_DEFINITIONS = [
     name: "get_major_requirements",
     description:
       "Get the IGETC general education requirements and major preparation courses needed to transfer. " +
-      "Use when student asks what classes they need or how to prepare for transfer.",
+      "Use when student asks: what classes do I need, what are the requirements, what is IGETC, " +
+      "what areas do I need to complete, how do I prepare for transfer, or anything about transfer requirements.",
     input_schema: {
       type: "object",
       properties: {
@@ -220,7 +205,8 @@ export const TOOL_DEFINITIONS = [
   {
     name: "search_courses",
     description:
-      "Search the De Anza College course catalog. Use when student asks 'what courses cover X' or needs to find courses for a requirement.",
+      "Search the De Anza College course catalog. Use when student asks what courses are available, " +
+      "what classes cover a topic, or needs to find specific courses at De Anza.",
     input_schema: {
       type: "object",
       properties: {
@@ -233,9 +219,10 @@ export const TOOL_DEFINITIONS = [
   {
     name: "generate_plan",
     description:
-      "Generate a complete term-by-term transfer plan for a student. Automatically places articulating major prep courses and IGETC requirements across terms. " +
-      "Use when student asks 'make me a plan', 'what should my schedule look like', or 'plan my transfer'. " +
-      "Returns a validated plan with any errors or warnings.",
+      "Generate a complete term-by-term transfer plan for a student. " +
+      "Use when student asks: make me a plan, what should my schedule look like, what courses should I take each term, " +
+      "plan my transfer, what should I take next quarter, or how should I organize my classes over multiple terms. " +
+      "Returns a validated multi-term course schedule.",
     input_schema: {
       type: "object",
       properties: {
@@ -244,23 +231,19 @@ export const TOOL_DEFINITIONS = [
         transfer_year:     { type: "string",  description: "Intended transfer year, e.g. '2026'" },
         units_per_term:    { type: "number",  description: "Max units per term (default 15)" },
         terms_available:   { type: "number",  description: "Number of terms remaining (default 4)" },
-        completed_courses: { type: "array", items: { type: "string" }, description: "Courses already completed, e.g. ['MATH 1A', 'EWRT 1A']" },
+        completed_courses: { type: "array", items: { type: "string" }, description: "Courses already completed" },
       },
       required: ["major"],
     },
   },
 ];
 
-// -----------------------------------------------------------------------
-// Dispatcher
-// -----------------------------------------------------------------------
-
 export async function dispatchTool(toolName: string, toolInput: any): Promise<string> {
   switch (toolName) {
-    case "lookup_articulation":   return await lookupArticulation(toolInput);
+    case "lookup_articulation":    return await lookupArticulation(toolInput);
     case "get_major_requirements": return await getMajorRequirements(toolInput);
-    case "search_courses":        return await searchCourses(toolInput);
-    case "generate_plan":         return await generatePlan(toolInput);
-    default:                      return `Unknown tool: ${toolName}`;
+    case "search_courses":         return await searchCourses(toolInput);
+    case "generate_plan":          return await generatePlan(toolInput);
+    default:                       return `Unknown tool: ${toolName}`;
   }
 }
