@@ -1,0 +1,1 @@
+    {"scenario": "Student asking to plan transfer", "input": "Build me a term-by-term schedule to transfer to UC Berkeley for Computer Science.", "expected_tool": "generate_plan", "expected_keywords": ["plan", "UC Berkeley"], "should_not_contain": [], "category": "planning"},
